@@ -1,71 +1,73 @@
+import pandas as pd
 import streamlit as st
 from streamlit_echarts import st_echarts
-import pandas as pd
+from utils.layouts import page_config, nav_layout
 
-st.set_page_config(page_title='Industria Pesquera Argentina', layout='wide')
-st.markdown(
-"""
-# Visualización de la Industria Pesquera Argentina
-""")
-
-home, desembarcos, especies, flota= st.columns(4)
-if home.button("Inicio", use_container_width=True):
-    st.switch_page("pescar.py")
-if desembarcos.button("Desembarcos", use_container_width=True):
-    st.switch_page("pages/desembarcos.py")
-if especies.button("Especies", use_container_width=True):
-    st.switch_page("pages/especies.py")
-if flota.button("Flota", use_container_width=True):
-    st.switch_page("pages/flota.py")
+page_config() # Config
+nav_layout('flota') # Nav
 
 
-st.markdown(
-"""
-## Capturas Marítimas por Embarcación (2014 -2024)
-"""
-)
+st.header("Capturas Marítimas por Embarcación (2014 -2024)", anchor=False)
+
+# UI - Year Select
+years = [str(y) for y in range(2014,2025,1)]
+year_select, gap = st.columns([0.2, 0.8])
+year = year_select.selectbox('Año', tuple(years))
 
 
+# Data
 full_data = pd.read_csv('data/desembarques_2014_2024.csv')
 
-col_1, col2 = st.columns([0.2, 0.8])
-year = col_1.selectbox(
-    'Año',
-    ('2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023', '2024'),
-)
 
-print(year)
-
-total_flota_especie = full_data[['año', 'especie_tipo', 'flota', 'toneladas']].groupby(['año', 'flota', 'especie_tipo']).sum()
+# Group
+idx_cols = ['año', 'especie_tipo', 'flota', 'toneladas']
+gr_cols = ['año', 'flota', 'especie_tipo']
+total_flota_especie = full_data[idx_cols].groupby(gr_cols).sum()
 total_flota_especie = total_flota_especie['toneladas'][int(year)].reset_index()
+
+
 # Data preparation
 categories = list(total_flota_especie['especie_tipo'].value_counts().to_dict().keys())
 fleet_types = list(total_flota_especie['flota'].value_counts().to_dict().keys())
+group_ = ['flota', 'especie_tipo']
+pivot_data = total_flota_especie.groupby(group_)['toneladas'].sum().unstack(fill_value=0)
 
 
-pivot_data = total_flota_especie.groupby(['flota', 'especie_tipo'])['toneladas'].sum().unstack(fill_value=0)
-
-# Get the fleet types (index of the pivot table)
+# Flota
 fleet_types = pivot_data.index.tolist()
 
-# Get the species types (columns of the pivot table)
+# Especies
 categories = pivot_data.columns.tolist()
 
-# Get the data for each species type
+
+# Capturas por flota y especie
 data_crustaceos = [round(d,2) for d in pivot_data['Crustáceos'].tolist()] if 'Crustáceos' in pivot_data else []
 data_moluscos = [round(d,2) for d in pivot_data['Moluscos'].tolist()] if 'Moluscos' in pivot_data else []
 data_peces = [round(d,2) for d in pivot_data['Peces'].tolist()] if 'Peces' in pivot_data else []
 
 
-
+# Plot
 options = {
-    'title': {'text': 'Capturas por Flota y Especie', 'subtext': f'{year}', 'x':'left'},
+    'title': {
+        'text': 'Capturas por Flota y Especie',
+        'subtext': f'{year} - En toneladas',
+        'x':'left',
+        'textStyle': {
+            'color': '#fff',
+            'fontSize': 20,
+        },
+        'subtextStyle': {
+            'color': '#eee',
+            'fontSize': 14,
+        }
+    },
     'tooltip': {
         'trigger': 'axis',
         'axisPointer': {'type': 'shadow'}
     },
     'legend': {
-        'data': categories
+        'data': categories,
+        'textStyle': {'color': '#ccc'},
     },
     'grid': {
         'left': '3%',
@@ -105,5 +107,4 @@ options = {
     ]
 }
 
-# Display chart in Streamlit
 st_echarts(options=options, height='400px')

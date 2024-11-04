@@ -1,255 +1,178 @@
+import json
+import pandas as pd
 import streamlit as st
 from streamlit_echarts import st_echarts
-import pandas as pd
-import numpy as np
-import base64
+from utils.utils import get_data
+from utils.layouts import page_config, nav_layout
+
+page_config() # Config
+nav_layout('especies') # Nav
 
 
+st.header('Capturas Marítimas por Animal (2014 -2024)', anchor=False)
 
-ESPECIES_REF = {
-    "Peces": [
-        "Abadejo",
-        "Anchoa de banco",
-        "Anchoíta",
-        "Atunes nep",
-        "Bacalao austral",
-        "Bagre",
-        "Bathyraja",
-        "Besugo",
-        "Bonito",
-        "Brótola",
-        "Burriqueta",
-        "Caballa",
-        "Cabrilla",
-        "Castañeta",
-        "Cazón",
-        "Chernia",
-        "Chucho",
-        "Chanchito",
-        "Cojinova",
-        "Congrio",
-        "Congrio de profundidad",
-        "Cornalito",
-        "Corvina blanca",
-        "Corvina negra",
-        "Gatuzo",
-        "Granadero",
-        "Jurel",
-        "Lenguados nep",
-        "Lisa",
-        "Merluza austral",
-        "Merluza de cola",
-        "Merluza hubbsi",
-        "Merluza negra",
-        "Mero",
-        "Morena",
-        "Notothenia",
-        "Palometa",
-        "Pampanito",
-        "Papafigo",
-        "Pargo",
-        "Pejerrey",
-        "Pescadilla",
-        "Pescadilla real",
-        "Pez ángel",
-        "Pez espada",
-        "Pez gallo",
-        "Pez limón",
-        "Pez palo",
-        "Pez sable",
-        "Pez sierra",
-        "Polaca",
-        "Raya cola corta",
-        "Raya de círculos",
-        "Raya hocicuda / picuda",
-        "Raya lisa",
-        "Raya marmolada",
-        "Raya pintada",
-        "Rayas nep",
-        "Raya marrón oscuro",
-        "Raya platana",
-        "Raya espinosa",
-        "Tiburón gris      ",
-        "Tiburón sardinero",
-        "Róbalo",
-        "Rubio",
-        "Salmón de mar",
-        "Salmonete",
-        "Saraca",
-        "Sargo",
-        "Savorín",
-        "Tiburón bacota",
-        "Tiburón espinoso",
-        "Tiburón gris",
-        "Tiburón martillo",
-        "Tiburón moteado",
-        "Tiburón pintaroja",
-        "Tiburones nep",
-        "Testolín",
-        "Otras especies de peces",
-        "Otros peces"
-    ],
-    "Crustáceos": [
-        "Camarón",
-        "Cangrejo",
-        "Cangrejo rojo",
-        "Centolla",
-        "Langostino",
-        "Centollón",
-        "Otros crustáceos"
-    ],
-    "Moluscos": [
-        "Almejas nep",
-        "Calamar Illex",
-        "Calamar Loligo",
-        "Calamar Martialia",
-        "Calamar patagónico",
-        "Caracol",
-        "Caracol negro",
-        "Mejillón",
-        "Pulpitos",
-        "Pulpos nep",
-        "Vieira",
-        "Cholga",
-        "Panopea",
-        "Navaja",
-        "Otros moluscos"
-    ]
-}
-
-
-
-
-st.set_page_config(page_title='Industria Pesquera Argentina', layout='wide')
-st.markdown(
-"""
-# Visualización de la Industria Pesquera Argentina
-""")
-
-home, desembarcos, especies, flota= st.columns(4)
-if home.button("Inicio", use_container_width=True):
-    st.switch_page("pescar.py")
-if desembarcos.button("Desembarcos", use_container_width=True):
-    st.switch_page("pages/desembarcos.py")
-if especies.button("Especies", use_container_width=True):
-    st.switch_page("pages/especies.py")
-if flota.button("Flota", use_container_width=True):
-    st.switch_page("pages/flota.py")
-
-
-st.markdown(
-"""
-## Capturas Marítimas por Animal (2014 -2024)
-"""
-)
-
+# Data
+ESPECIES_REF = get_data('Especies')
 full_data = pd.read_csv('data/desembarques_2014_2024.csv')
-
 
 
 # Filtros
 top_container = st.container(border=True)
 filters, gap, totals = top_container.columns([0.45, 0.1, 0.45])
 
-
 filt_esp, filt_animal = filters.columns([0.5, 0.5])
 
 # Especie tipo
-especie_tipo = filt_esp.selectbox(
-    'Especie',
-    ('Peces', 'Crustáceos', 'Moluscos'),
-)
+esp_tipos = ('Peces', 'Crustáceos', 'Moluscos')
+especie_tipo = filt_esp.selectbox('Especie', esp_tipos)
 
 # Animal
-animal = filt_animal.selectbox(
-    'Animal',
-    ESPECIES_REF.get(especie_tipo, [])
-)
+esp_ = ESPECIES_REF.get(especie_tipo, [])
+animal = filt_animal.selectbox('Animal', esp_)
 
 
+# TOTALES
+_, total_cap, mean_anual = totals.columns([0.2, 0.4, 0.4])
 
-# Totales
-total_cap, mean_anual = totals.columns([0.5, 0.5])
 # Total periodo
-ton_especie = full_data[['año','especie_tipo', 'especie', 'toneladas']].groupby(['especie_tipo', 'especie', 'año']).sum()
+idx_cols = ['año','especie_tipo', 'especie', 'toneladas']
+gr_cols = ['especie_tipo', 'especie', 'año']
+ton_especie = full_data[idx_cols].groupby(gr_cols).sum()
 total_ton_especie = ton_especie['toneladas'][especie_tipo][animal].sum()
-total_cap.markdown('##### Total Captura')
-total_cap.header(f'{total_ton_especie} Tn.')
+
+total_cap.write('Total Captura')
+total_cap.subheader(f'{round(total_ton_especie,2)} Tn.', anchor=False)
+
 
 # Media anual
 media_anual_especie = ton_especie['toneladas'][especie_tipo][animal].mean()
 
-mean_anual.markdown('##### Media Anual')
-mean_anual.header(f'{round(media_anual_especie,2)} Tn.')
+mean_anual.write('Media Anual')
+mean_anual.subheader(f'{round(media_anual_especie,2)} Tn.', anchor=False)
 
 
-chart, percentages = st.columns([0.50, 0.50])
+chart, percentages = st.columns([0.5, 0.5])
 chart_container = chart.container(border=True)
 
 
-#   ESTACIONALIDAD: MEDIA MENSUAL
+# ESTACIONALIDAD: MEDIA MENSUAL
 
 # Vals
-ton_especie_mean = full_data[['mes', 'especie_tipo', 'especie', 'toneladas']].groupby(['especie_tipo', 'especie', 'mes']).mean()
+idx_cols_vals = ['mes', 'especie_tipo', 'especie', 'toneladas']
+gr_cols_vals = ['especie_tipo', 'especie', 'mes']
+ton_especie_mean = full_data[idx_cols_vals].groupby(gr_cols_vals).mean()
 values = ton_especie_mean['toneladas'][especie_tipo][animal].to_dict().values()
+
+months = get_data('Meses')
+months_formatted = [m[:3] for m in months]
 
 # Plot
 options = {
-    'title': {'text': 'Media Mensual', 'subtext': f'{animal}', 'x':'left'},
-    "xAxis": {
-        "type": "category",
+    'title': {
+        'text': 'Media Mensual',
+        'subtext': f'{animal}',
+        'x':'left',
+        'textStyle': {
+            'color': '#fff',
+            'fontSize': 20,
+        },
+        'subtextStyle': {
+            'color': '#eee',
+            'fontSize': 14,
+        }
+    },
+    'xAxis': {
+        'type': 'category',
         'splitLine': {
             'show': True,
             'interval': 2,
-            'lineStyle': {'opacity':0.1, 'color': '#fff'}
+            'lineStyle': {
+                'opacity':0.1,
+                'color': '#fff'
+            }
         },
-        "data": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+        'data': months_formatted,
     },
-    "yAxis": {
-        "type": "value",
-        'show':False
+    'yAxis': {
+        'type': 'value',
+        'show':False,
     },
-    "series": [{"data": [round(v,2) for v in list(values)], "type": "line", 'smooth': True, 'showSymbol': False }],
+    'series': [{
+        'data': [round(v,2) for v in list(values)],
+        'type': 'line',
+        'smooth': True,
+        'showSymbol': False
+    }],
 }
 
+# Plot
 with chart_container:
     st_echarts(options=options, height='400px')
 
 
-
-#   TOTAL POR PUERTO
+# TOTAL POR PUERTO
 
 # Vals
-ton_especie_puerto = full_data[['puerto','especie_tipo', 'especie', 'toneladas']].groupby(['especie_tipo', 'especie', 'puerto']).sum()
+idx_cols_pto = ['puerto','especie_tipo', 'especie', 'toneladas']
+gr_cols_pto = ['especie_tipo', 'especie', 'puerto']
+ton_especie_puerto = full_data[idx_cols_pto].groupby(gr_cols_pto).sum()
 especie_puerto = ton_especie_puerto['toneladas'][especie_tipo][animal].to_dict()
-especie_puerto_ = [{"value": round((especie_puerto[p] * 100 ) / total_ton_especie, 2), "name": p} for p in especie_puerto]
+especie_puerto_ = [
+    {
+    'value': round((especie_puerto[p] * 100 ) / total_ton_especie, 2),
+    'name': p
+    } for p in especie_puerto]
 
 # Container
 chart_2_container = percentages.container(border=True)
 
 # Plot
 options = {
-    'title': {'text': 'Capturas por Puerto', 'subtext': f'{animal}', 'x':'left'},
-    "tooltip": {"trigger": "item"},
-    "legend": {"top": "5%", "left": "right", "orient": "vertical"},
-    "series": [
+    'title': {
+        'text': 'Capturas por Puerto',
+        'subtext': f'{animal}',
+        'x':'left',
+        'textStyle': {
+            'color': '#fff',
+            'fontSize': 20,
+        },
+        'subtextStyle': {
+            'color': '#eee',
+            'fontSize': 14,
+        }
+    },
+    'tooltip': {'trigger': 'item'},
+    'legend': {
+        'top': '5%',
+        'left': 'right',
+        'orient': 'vertical',
+        'textStyle': {'color': '#fff'},
+    },
+    'series': [
         {
-            "name": "Capturas en Tn.",
-            "type": "pie",
-            "radius": ["50%", "90%"],
-            "avoidLabelOverlap": False,
-            "itemStyle": {
-                "borderRadius": 10,
-                "borderColor": "#333",
-                "borderWidth": 1,
+            'name': 'Capturas en Tn.',
+            'type': 'pie',
+            'radius': ['50%', '90%'],
+            'avoidLabelOverlap': True,
+            'itemStyle': {
+                'borderRadius': 10,
+                'borderColor': '#333',
+                'borderWidth': 1,
             },
-            "label": {"show": True, "position": "center"},
-            "emphasis": {
-                "label": {"show": True, "fontSize": "22", "fontWeight": "bold"}
+            'label': {
+                'show': False,
+                'position': 'center'
             },
-            "labelLine": {"show": True},
-            "data": especie_puerto_,
-            'center': ['30%' if len(especie_puerto_) > 15 else '50%', '50%']
+            'emphasis': {
+                'label': {
+                    'show': True,
+                    'color': '#fff'
+                }
+            },
+            'labelLine': {'show': False},
+            'data': especie_puerto_,
+            'center': ['35%' if len(especie_puerto_) > 15 else '50%', '50%'],
+            'top': '5%'
         }
     ],
 }
